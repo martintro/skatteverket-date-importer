@@ -7,48 +7,26 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
-var months = map[string]string{
-	"jan": "01",
-	"feb": "02",
-	"mar": "03",
-	"apr": "04",
-	"maj": "05",
-	"jun": "06",
-	"jul": "07",
-	"aug": "08",
-	"sep": "09",
-	"okt": "10",
-	"nov": "11",
-	"dec": "12",
-}
-
 type responseObject struct {
-	Years yearWithDates `json:"viktigaDatum,omitempty"`
-}
-
-type yearWithDates struct {
-	Upcoming []event `json:"kommande,omitempty"`
-	Earlier  []event `json:"tidigare,omitempty"`
+	Events []event `json:"viktigaDatum,omitempty"`
 }
 
 type event struct {
-	Year           int    `json:"ar,omitempty"`
-	Day            int    `json:"dag,omitempty"`
-	MonthName      string `json:"manad,omitempty"`
-	MonthShortName string `json:"manadShort,omitempty"`
-	Category       string `json:"kategori,omitempty"`
-	Type           string `json:"typ,omitempty"`
-	WebSkvPath     string `json:"url,omitempty"`
+	Type       string   `json:"type,omitempty"`
+	Category   string   `json:"category,omitempty"`
+	WebSkvPath string   `json:"uri,omitempty"`
+	Dates      []string `json:"dates,omitempty"`
 }
 
-// Possible values UPP_TILL_EN_MILJON, UPP_TILL_FYRTIO_MILJONER, OVER_FYRTIO_MILJONER
+// Possible values UPP_TILL_EN_MILJON, MER_AN_EN_MILJON_TILL_FYRTIO_MILJONER, OVER_FYRTIO_MILJONER
 var revenue = "UPP_TILL_EN_MILJON"
 
-// Possible values HELAR, KVARTAL, MANAD
-var vatDeclarationPeriod = "HELAR"
+// Possible values AR, KVARTAL, MANAD
+var vatDeclarationPeriod = "AR"
 
 // Possible values true, false
 var paysSalary = "true"
@@ -74,7 +52,7 @@ func main() {
 	fmt.Println("Import done!")
 }
 
-func createIcsFile(events *responseObject) error {
+func createIcsFile(response *responseObject) error {
 	file, err := os.Create("skatteverket.ics")
 	if err != nil {
 		return err
@@ -89,19 +67,21 @@ func createIcsFile(events *responseObject) error {
 		return err
 	}
 
-	for _, event := range events.Years.Upcoming {
-		_, err = file.WriteString("BEGIN:VEVENT\n" +
-			"TRANSP:TRANSPARENT\n" +
-			"UID:" + strconv.Itoa(rand.Int()) + "@martintroedsson\n" +
-			"DTSTAMP:" + time.Now().Format("20060102T150405Z") + "\n" +
-			"DTSTART;VALUE=DATE:" + strconv.Itoa(event.Year) + months[event.MonthShortName] + fmt.Sprintf("%02d", event.Day) + "\n" +
-			"SEQUENCE:0\n" +
-			"CLASS:PUBLIC\n" +
-			"SUMMARY:" + event.Category + "\n" +
-			"DESCRIPTION:" + event.Type + " " + event.Category + ". https://www.skatteverket.se" + event.WebSkvPath + "\n" +
-			"END:VEVENT\n")
-		if err != nil {
-			return err
+	for _, event := range response.Events {
+		for _, date := range event.Dates {
+			_, err = file.WriteString("BEGIN:VEVENT\n" +
+				"TRANSP:TRANSPARENT\n" +
+				"UID:" + strconv.Itoa(rand.Int()) + "@martintroedsson\n" +
+				"DTSTAMP:" + time.Now().Format("20060102T150405Z") + "\n" +
+				"DTSTART;VALUE=DATE:" + strings.ReplaceAll(date, "-", "") + "\n" +
+				"SEQUENCE:0\n" +
+				"CLASS:PUBLIC\n" +
+				"SUMMARY:" + event.Category + "\n" +
+				"DESCRIPTION:" + event.Type + " " + event.Category + ". https://www.skatteverket.se" + event.WebSkvPath + "\n" +
+				"END:VEVENT\n")
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -117,12 +97,11 @@ func getDatesFromSkatteverket(financialYearLastMonth string, paysSalary string, 
 	vatDeclarationPeriod string) (*responseObject, error) {
 	var result *responseObject
 
-	response, err := http.Get("https://www.skatteverket.se/privat/etjansterochblanketter/" +
-		"viktigadatum.4.5d699354142b230302034e.12.3810a01c150939e893f2b2bd.portlet" +
-		"?struts.portlet.action=/vd/json-get-viktiga-datum&malgrupp=foretag" +
-		"&foretagsform=AKTIEBOLAG_FORENINGAR&omsattning=" + revenue + "&redovisning=" +
-		vatDeclarationPeriod + "&rakenskapsar-slut=" + financialYearLastMonth +
-		"&arbetsgivare=" + paysSalary + "&spara-filterval=false")
+	var url = "https://skatteverket.se/viktiga-datum-api/api/v1/viktiga-datum-foretag?foretagsform=AKTIEBOLAG_FORENINGAR&" +
+		"omsattning=" + revenue + "&momsredovisningsperiod=" + vatDeclarationPeriod + "&rakenskapsaretsSistaManad=" + financialYearLastMonth + "&" +
+		"arbetsgivare=" + paysSalary + "&tidigareDatum=false"
+	fmt.Println("Using URL: " + url)
+	response, err := http.Get(url)
 	if err != nil {
 		return result, err
 	}
