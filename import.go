@@ -101,7 +101,11 @@ func getDatesFromSkatteverket(financialYearLastMonth string, paysSalary string, 
 		"omsattning=" + revenue + "&momsredovisningsperiod=" + vatDeclarationPeriod + "&rakenskapsaretsSistaManad=" + financialYearLastMonth + "&" +
 		"arbetsgivare=" + paysSalary + "&tidigareDatum=false"
 	fmt.Println("Using URL: " + url)
-	response, err := http.Get(url)
+
+	client := http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36")
+	response, err := client.Do(req)
 	if err != nil {
 		return result, err
 	}
