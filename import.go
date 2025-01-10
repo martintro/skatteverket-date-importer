@@ -68,6 +68,16 @@ func createIcsFile(response *responseObject) error {
 	}
 
 	for _, event := range response.Events {
+		if event.Category == "Fastighetsdeklaration" ||
+			event.Category == "Moms på IOSS" ||
+			event.Category == "Moms på OSS" ||
+			event.Category == "Beslut om fastighetstaxering" ||
+			event.Category == "Särskild fastighetstaxering" ||
+			event.Category == "Ansökan om utbetalning för grön teknik" ||
+			event.Category == "Ansökan om rot- och rututbetalning" ||
+			event.Category == "Periodisk sammanställning på blankett" {
+			continue
+		}
 		for _, date := range event.Dates {
 			_, err = file.WriteString("BEGIN:VEVENT\n" +
 				"TRANSP:TRANSPARENT\n" +
