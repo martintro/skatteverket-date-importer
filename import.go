@@ -43,6 +43,9 @@ type relatedLink struct {
 	Link string `json:"link"`
 }
 
+// Year for filtering events
+var yearToImport = 2026
+
 // Possible values Privat, Företag
 var customer = "Företag"
 
@@ -121,6 +124,9 @@ func filterImportantDates(events responseObject, customer string, businessType s
 	var filtered responseObject
 
 	for _, e := range events {
+		if !isBetweenInclusive(e.Date, time.Date(yearToImport, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(yearToImport, 12, 31, 0, 0, 0, 0, time.UTC)) {
+			continue
+		}
 		if e.Customer != customer {
 			continue
 		}
@@ -190,4 +196,12 @@ func contains(list []string, value string) bool {
 		}
 	}
 	return false
+}
+
+func isBetweenInclusive(dateStr string, from time.Time, to time.Time) bool {
+	eventDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return false
+	}
+	return !eventDate.Before(from) && !eventDate.After(to)
 }
