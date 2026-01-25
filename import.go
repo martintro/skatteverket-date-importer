@@ -97,6 +97,16 @@ func createIcsFile(response responseObject) error {
 	}
 
 	for _, event := range response {
+		alarm1, err := alarmTrigger(event.Date, 1)
+		if err != nil {
+			return err
+		}
+
+		alarm2, err := alarmTrigger(event.Date, 3)
+		if err != nil {
+			return err
+		}
+
 		_, err = file.WriteString("BEGIN:VEVENT\n" +
 			"TRANSP:TRANSPARENT\n" +
 			"UID:" + strconv.Itoa(rand.Int()) + "@martintroedsson\n" +
@@ -106,6 +116,18 @@ func createIcsFile(response responseObject) error {
 			"CLASS:PUBLIC\n" +
 			"SUMMARY:" + event.Name + "\n" +
 			"DESCRIPTION:" + event.Name + "\n" +
+			// Alarm: 3 days before at 10:00
+			"BEGIN:VALARM\n" +
+			"ACTION:DISPLAY\n" +
+			"DESCRIPTION:Reminder\n" +
+			"TRIGGER;VALUE=DATE-TIME:" + alarm2 + "\n" +
+			"END:VALARM\n" +
+			// Alarm: 1 day before at 10:00
+			"BEGIN:VALARM\n" +
+			"ACTION:DISPLAY\n" +
+			"DESCRIPTION:Reminder\n" +
+			"TRIGGER;VALUE=DATE-TIME:" + alarm1 + "\n" +
+			"END:VALARM\n" +
 			"END:VEVENT\n")
 		if err != nil {
 			return err
@@ -118,6 +140,19 @@ func createIcsFile(response responseObject) error {
 	}
 
 	return nil
+}
+
+func alarmTrigger(dateStr string, daysBefore int) (string, error) {
+	eventDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return "", err
+	}
+
+	alarmTime := eventDate.
+		AddDate(0, 0, -daysBefore).
+		Add(10 * time.Hour) // 10:00 AM
+
+	return alarmTime.UTC().Format("20060102T150405Z"), nil
 }
 
 func filterImportantDates(events responseObject, customer string, businessType string, fiscalYear string, turnover string, accountingPeriod string) responseObject {
